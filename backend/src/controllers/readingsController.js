@@ -3,7 +3,9 @@ import { ReadingsModel } from "../models/readingsModel.js";
 export const ReadingsController = {
   async list(req, res) {
     try {
-      const data = await ReadingsModel.list();
+      const page = req.query.page;
+      const limit = req.query.limit;
+      const data = await ReadingsModel.list({ page, limit });
       res.json(data);
     } catch (error) {
       res.status(500).json({ error: error.message });

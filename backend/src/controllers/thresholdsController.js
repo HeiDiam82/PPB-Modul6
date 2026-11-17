@@ -3,7 +3,9 @@ import { ThresholdsModel } from "../models/thresholdsModel.js";
 export const ThresholdsController = {
   async list(req, res) {
     try {
-      const data = await ThresholdsModel.list();
+      const page = req.query.page;
+      const limit = req.query.limit;
+      const data = await ThresholdsModel.list({ page, limit });
       res.json(data);
     } catch (error) {
       res.status(500).json({ error: error.message });

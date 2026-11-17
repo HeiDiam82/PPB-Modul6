@@ -19,14 +19,34 @@ function assertValidValue(value) {
 }
 
 export const ThresholdsModel = {
-  async list() {
-    const { rows } = await pool.query(
-      `SELECT id, value, note, created_at
-       FROM public.threshold_settings
-       ORDER BY created_at DESC
-       LIMIT 100`
-    );
-    return rows.map(normalize);
+  async list(options = {}) {
+    const page = Math.max(1, parseInt(options.page, 10) || 1);
+    const limit = Math.max(1, Math.min(100, parseInt(options.limit, 10) || 10));
+    const offset = (page - 1) * limit;
+
+    const [dataResult, countResult] = await Promise.all([
+      pool.query(
+        `SELECT id, value, note, created_at
+         FROM public.threshold_settings
+         ORDER BY created_at DESC
+         LIMIT $1 OFFSET $2`,
+        [limit, offset]
+      ),
+      pool.query(`SELECT COUNT(*)::int AS total FROM public.threshold_settings`),
+    ]);
+
+    const total = countResult.rows[0]?.total ?? 0;
+    const totalPages = Math.ceil(total / limit) || 1;
+
+    return {
+      data: dataResult.rows.map(normalize),
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages,
+      },
+    };
   },
 
   async latest() {

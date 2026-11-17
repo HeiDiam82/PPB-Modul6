@@ -107,18 +107,44 @@ export function MonitoringScreen() {
 	const [loading, setLoading] = useState(false);
 	const [refreshing, setRefreshing] = useState(false);
 	const [apiError, setApiError] = useState(null);
+	const [page, setPage] = useState(1);
+	const [pagination, setPagination] = useState({
+		page: 1,
+		limit: 10,
+		total: 0,
+		totalPages: 1,
+	});
 	const reduceMotion = useReducedMotion();
 
-	const fetchReadings = useCallback(async () => {
+	const fetchReadings = useCallback(async (targetPage = 1) => {
 		setLoading(true);
 		setApiError(null);
 		try {
-			const [history, thresholds] = await Promise.all([
-				Api.getSensorReadings(),
-				Api.getThresholds().catch(() => null),
+			const [historyRes, thresholdsRes] = await Promise.all([
+				Api.getSensorReadings({ page: targetPage, limit: 10 }),
+				Api.getThresholds({ page: 1, limit: 1 }).catch(() => null),
 			]);
-			setReadings(history ?? []);
-			const latest = Array.isArray(thresholds) ? thresholds[0]?.value : null;
+			const items = Array.isArray(historyRes)
+				? historyRes
+				: (historyRes?.data ?? []);
+			setReadings(items);
+			if (historyRes?.pagination) {
+				setPagination(historyRes.pagination);
+				setPage(historyRes.pagination.page);
+			} else {
+				setPagination({
+					page: targetPage,
+					limit: 10,
+					total: items.length,
+					totalPages: Math.max(1, Math.ceil(items.length / 10)),
+				});
+				setPage(targetPage);
+			}
+
+			const threshItems = Array.isArray(thresholdsRes)
+				? thresholdsRes
+				: (thresholdsRes?.data ?? []);
+			const latest = threshItems[0]?.value;
 			setLatestThreshold(typeof latest === "number" ? latest : null);
 		} catch (err) {
 			setApiError(err.message || "Couldn't load history.");
@@ -129,18 +155,31 @@ export function MonitoringScreen() {
 
 	useFocusEffect(
 		useCallback(() => {
-			fetchReadings();
-		}, [fetchReadings]),
+			fetchReadings(page);
+		}, [fetchReadings, page]),
 	);
 
 	const onRefresh = useCallback(async () => {
 		setRefreshing(true);
 		try {
-			await fetchReadings();
+			await fetchReadings(page);
 		} finally {
 			setRefreshing(false);
 		}
-	}, [fetchReadings]);
+	}, [fetchReadings, page]);
+
+	const handlePageChange = useCallback(
+		(newPage) => {
+			if (
+				newPage < 1 ||
+				(pagination.totalPages && newPage > pagination.totalPages)
+			)
+				return;
+			setPage(newPage);
+			fetchReadings(newPage);
+		},
+		[pagination.totalPages, fetchReadings],
+	);
 
 	const proximity = useMemo(() => {
 		if (
@@ -364,11 +403,11 @@ export function MonitoringScreen() {
 				<View style={styles.sectionHeader}>
 					<View style={styles.sectionTitleRow}>
 						<Text style={styles.sectionTitle}>Triggered Alarm History</Text>
-						{Array.isArray(readings) && readings.length > 0 ? (
+						{pagination.total > 0 || (Array.isArray(readings) && readings.length > 0) ? (
 							<View style={styles.countPill}>
 								<Text style={styles.countText}>
-									{readings.length}{" "}
-									{readings.length === 1 ? "reading" : "readings"}
+									{pagination.total ?? readings.length}{" "}
+									{(pagination.total ?? readings.length) === 1 ? "reading" : "readings"}
 								</Text>
 							</View>
 						) : null}
@@ -408,7 +447,9 @@ export function MonitoringScreen() {
 					emptyTitle="No readings yet"
 					emptyMessage="Triggered readings appear here. Pull to refresh."
 					emptyActionLabel="Refresh"
-					onEmptyAction={fetchReadings}
+					onEmptyAction={() => fetchReadings(page)}
+					pagination={pagination}
+					onPageChange={handlePageChange}
 				/>
 			</ScrollView>
 		</View>

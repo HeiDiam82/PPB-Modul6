@@ -22,11 +22,19 @@ async function request(path, options = {}) {
 }
 
 export const Api = {
-  getSensorReadings() {
-    return request("/api/readings");
+  getSensorReadings(params = {}) {
+    const searchParams = new URLSearchParams();
+    if (params.page != null) searchParams.append("page", String(params.page));
+    if (params.limit != null) searchParams.append("limit", String(params.limit));
+    const qs = searchParams.toString();
+    return request(`/api/readings${qs ? `?${qs}` : ""}`);
   },
-  getThresholds() {
-    return request("/api/thresholds");
+  getThresholds(params = {}) {
+    const searchParams = new URLSearchParams();
+    if (params.page != null) searchParams.append("page", String(params.page));
+    if (params.limit != null) searchParams.append("limit", String(params.limit));
+    const qs = searchParams.toString();
+    return request(`/api/thresholds${qs ? `?${qs}` : ""}`);
   },
   createThreshold(payload) {
     return request("/api/thresholds", {

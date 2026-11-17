@@ -82,12 +82,17 @@ export function DataTable({
   onEmptyAction,
   loading = false,
   loadingRows = 3,
+  pagination,
+  onPageChange,
 }) {
   if (!columns?.length) {
     return null;
   }
 
   const hasData = Array.isArray(data) && data.length > 0;
+  const showPagination = Boolean(
+    pagination && typeof pagination.totalPages === "number" && pagination.totalPages > 1
+  );
 
   return (
     <View
@@ -141,6 +146,78 @@ export function DataTable({
               <Text style={styles.emptyActionText}>{emptyActionLabel}</Text>
             </Pressable>
           ) : null}
+        </View>
+      )}
+      {showPagination && (
+        <View style={styles.paginationRow} accessible accessibilityRole="menubar">
+          <View style={styles.paginationInfo}>
+            <Text style={styles.paginationInfoText}>
+              Page <Text style={styles.paginationBold}>{pagination.page}</Text> of{" "}
+              <Text style={styles.paginationBold}>{pagination.totalPages}</Text>
+              {typeof pagination.total === "number" && (
+                <Text style={styles.paginationTotal}> ({pagination.total} total)</Text>
+              )}
+            </Text>
+          </View>
+          <View style={styles.paginationControls}>
+            <Pressable
+              onPress={() => onPageChange && onPageChange(pagination.page - 1)}
+              disabled={pagination.page <= 1 || loading}
+              style={({ pressed }) => [
+                styles.pageButton,
+                (pagination.page <= 1 || loading) && styles.pageButtonDisabled,
+                pressed && styles.pressed,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Previous page"
+              hitSlop={8}
+            >
+              <Ionicons
+                name="chevron-back"
+                size={16}
+                color={pagination.page <= 1 || loading ? color.text3 : color.text}
+              />
+              <Text
+                style={[
+                  styles.pageButtonText,
+                  (pagination.page <= 1 || loading) && styles.pageButtonTextDisabled,
+                ]}
+              >
+                Prev
+              </Text>
+            </Pressable>
+
+            <View style={styles.pagePill}>
+              <Text style={styles.pagePillText}>{pagination.page}</Text>
+            </View>
+
+            <Pressable
+              onPress={() => onPageChange && onPageChange(pagination.page + 1)}
+              disabled={pagination.page >= pagination.totalPages || loading}
+              style={({ pressed }) => [
+                styles.pageButton,
+                (pagination.page >= pagination.totalPages || loading) && styles.pageButtonDisabled,
+                pressed && styles.pressed,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Next page"
+              hitSlop={8}
+            >
+              <Text
+                style={[
+                  styles.pageButtonText,
+                  (pagination.page >= pagination.totalPages || loading) && styles.pageButtonTextDisabled,
+                ]}
+              >
+                Next
+              </Text>
+              <Ionicons
+                name="chevron-forward"
+                size={16}
+                color={pagination.page >= pagination.totalPages || loading ? color.text3 : color.text}
+              />
+            </Pressable>
+          </View>
         </View>
       )}
     </View>
@@ -248,5 +325,75 @@ const styles = StyleSheet.create({
     color: color.onPrimary,
     fontWeight: "600",
     fontSize: 14,
+  },
+  paginationRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: color.bg,
+    borderTopWidth: 1,
+    borderTopColor: color.border,
+    paddingVertical: 10,
+    paddingHorizontal: space.md,
+    flexWrap: "wrap",
+    gap: space.sm,
+  },
+  paginationInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  paginationInfoText: {
+    fontSize: 12,
+    color: color.text2,
+  },
+  paginationBold: {
+    fontWeight: "700",
+    color: color.text,
+  },
+  paginationTotal: {
+    color: color.text3,
+  },
+  paginationControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+  },
+  pageButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: color.surface,
+    borderWidth: 1,
+    borderColor: color.border,
+    borderRadius: radius.card,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    gap: 2,
+    minHeight: 32,
+  },
+  pageButtonDisabled: {
+    opacity: 0.45,
+    backgroundColor: color.bg,
+  },
+  pageButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: color.text,
+  },
+  pageButtonTextDisabled: {
+    color: color.text3,
+  },
+  pagePill: {
+    minWidth: 28,
+    height: 28,
+    borderRadius: radius.pill,
+    backgroundColor: color.primary,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 6,
+  },
+  pagePillText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: color.onPrimary,
   },
 });

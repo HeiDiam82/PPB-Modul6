@@ -37,6 +37,13 @@ export function ControlScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 1,
+  });
 
   const thresholdRef = useRef(null);
   const noteRef = useRef(null);
@@ -48,12 +55,25 @@ export function ControlScreen() {
     };
   }, []);
 
-  const fetchHistory = useCallback(async () => {
+  const fetchHistory = useCallback(async (targetPage = 1) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await Api.getThresholds();
-      setHistory(data ?? []);
+      const res = await Api.getThresholds({ page: targetPage, limit: 10 });
+      const items = Array.isArray(res) ? res : (res?.data ?? []);
+      setHistory(items);
+      if (res?.pagination) {
+        setPagination(res.pagination);
+        setPage(res.pagination.page);
+      } else {
+        setPagination({
+          page: targetPage,
+          limit: 10,
+          total: items.length,
+          totalPages: Math.max(1, Math.ceil(items.length / 10)),
+        });
+        setPage(targetPage);
+      }
     } catch (err) {
       setError(err.message || "Couldn't load history. Try again.");
     } finally {
@@ -63,8 +83,21 @@ export function ControlScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchHistory();
-    }, [fetchHistory])
+      fetchHistory(page);
+    }, [fetchHistory, page])
+  );
+
+  const handlePageChange = useCallback(
+    (newPage) => {
+      if (
+        newPage < 1 ||
+        (pagination.totalPages && newPage > pagination.totalPages)
+      )
+        return;
+      setPage(newPage);
+      fetchHistory(newPage);
+    },
+    [pagination.totalPages, fetchHistory]
   );
 
   const latestThreshold = useMemo(() => history?.[0]?.value ?? null, [history]);
@@ -97,7 +130,7 @@ export function ControlScreen() {
       setShowSuccess(true);
       if (successTimer.current) clearTimeout(successTimer.current);
       successTimer.current = setTimeout(() => setShowSuccess(false), 3000);
-      await fetchHistory();
+      await fetchHistory(1);
     } catch (err) {
       setError(err.message || "Couldn't save. Try again.");
     } finally {
@@ -233,6 +266,14 @@ export function ControlScreen() {
 
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Threshold history</Text>
+            {pagination.total > 0 || (Array.isArray(history) && history.length > 0) ? (
+              <View style={styles.countPill}>
+                <Text style={styles.countText}>
+                  {pagination.total ?? history.length}{" "}
+                  {(pagination.total ?? history.length) === 1 ? "entry" : "entries"}
+                </Text>
+              </View>
+            ) : null}
           </View>
           <DataTable
             columns={[
@@ -262,6 +303,8 @@ export function ControlScreen() {
             loading={loading}
             emptyTitle="No thresholds yet"
             emptyMessage="Save your first threshold above."
+            pagination={pagination}
+            onPageChange={handlePageChange}
           />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -438,5 +481,19 @@ const styles = StyleSheet.create({
     fontSize: tokens.type.section,
     fontWeight: "700",
     color: color.text,
+  },
+  countPill: {
+    paddingHorizontal: space.sm,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    backgroundColor: color.surface2,
+    borderWidth: 1,
+    borderColor: color.border,
+  },
+  countText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: color.text2,
+    fontVariant: ["tabular-nums"],
   },
 });
